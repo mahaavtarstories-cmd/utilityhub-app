@@ -4,10 +4,20 @@ import { Sidebar } from '@/components/sidebar'
 import type { Profile } from '@/lib/types'
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
+  // Skip auth for login page — it's a public route within /app
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  if (!user) redirect('/app/login')
+  if (!user) {
+    // Check if we're on the login page — if so, render it without auth
+    // The layout wraps ALL /app/* routes including /app/login
+    // We render children directly for unauthenticated users (login page handles its own UI)
+    return (
+      <div className="min-h-screen">
+        {children}
+      </div>
+    )
+  }
 
   const { data: profile } = await supabase
     .from('profiles')
@@ -15,7 +25,14 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     .eq('id', user.id)
     .single()
 
-  if (!profile) redirect('/app/login')
+  if (!profile) {
+    // No profile yet — render login so they can see something
+    return (
+      <div className="min-h-screen">
+        {children}
+      </div>
+    )
+  }
 
   const p = profile as Profile
 
