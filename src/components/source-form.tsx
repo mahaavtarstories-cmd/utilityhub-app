@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 export default function SourceForm({ projectId, projectName }: { projectId: string; projectName: string }) {
   const router = useRouter()
   const [form, setForm] = useState({
-    website_name: '', url: '', purpose: '', status: 'approved', priority: 0, notes: ''
+    website_name: '', url: '', purpose: '', status: 'approved', priority: 0, notes: '', is_global: false
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -26,7 +26,7 @@ export default function SourceForm({ projectId, projectName }: { projectId: stri
     else { router.push(`/app/projects/${projectId}/sources`); router.refresh() }
   }
 
-  function set(key: string, value: string) {
+  function set(key: string, value: any) {
     setForm(prev => ({ ...prev, [key]: value }))
   }
 
@@ -77,6 +77,14 @@ export default function SourceForm({ projectId, projectName }: { projectId: stri
             <input type="number" value={form.priority} onChange={e => set('priority', e.target.value)} min={0}
               className="w-full px-3 py-2.5 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
           </div>
+        </div>
+        <div className="flex items-center gap-2 bg-blue-950/30 border border-blue-800 rounded-lg p-3">
+          <input type="checkbox" id="is_global" checked={form.is_global} onChange={e => set('is_global', e.target.checked)}
+            className="w-4 h-4 rounded accent-blue-600" />
+          <label htmlFor="is_global" className="text-sm text-slate-300 cursor-pointer">
+            <span className="font-medium text-white">🌍 Available for all projects</span>
+            <span className="block text-xs text-slate-400">Check this to share this source across eBay, Amazon, GunBroker, and Night Galaxy</span>
+          </label>
         </div>
         <div>
           <label className="block text-sm text-slate-300 mb-1">Notes</label>
