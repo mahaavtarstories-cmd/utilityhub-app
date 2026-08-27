@@ -113,8 +113,17 @@ Brand: ${product.brand || 'N/A'}
 MPN: ${product.mpn || 'N/A'}
 UPC: ${product.upc || 'N/A'}
 Product: ${product.product_name || 'N/A'}
+SKU: ${product.internal_sku || 'N/A'}
 
-Follow the title rules EXACTLY. Output ONLY the title, nothing else.`
+CRITICAL RULES:
+- The MPN should appear ONLY ONCE in the title, at the end after " - "
+- Do NOT repeat the MPN in the product description part of the title
+- Format: [Brand] [Product Description] - [MPN]
+- If MPN is "300TRPST 035R", the title ends with " - 300TRPST 035R" (use the MPN as-is)
+- Count characters carefully and stay within the max length
+- Include Color, Size, Material only if space permits after Brand + Product Type + MPN
+
+Output ONLY the title, nothing else.`
 
         const title = await callAI(prompt, systemPrompt)
         return NextResponse.json({ title: title.trim() })
