@@ -92,26 +92,66 @@ export async function POST(request: Request) {
     const headers = rows[0].map(normalizeHeader)
     const dataRows = rows.slice(1)
 
-    // Map headers to product fields — supports CSV, Excel, and Night Galaxy Magento export columns
-    const headerMap: Record<string, string> = {
-      brand: 'brand', mpn: 'mpn', upc: 'upc', sku: 'internal_sku',
-      product_name: 'product_name', productname: 'product_name', name: 'product_name',
-      manufacturer: 'manufacturer', model: 'model',
-      manufacturer_url: 'manufacturer_url', manufacturerurl: 'manufacturer_url',
-      product_url: 'product_url', producturl: 'product_url',
-      description: 'description', weight: 'weight', material: 'material', color: 'color',
-      // Night Galaxy Magento export columns
-      code: 'internal_sku', title: 'product_name', master_sku: 'internal_sku',
-      parent_sku: 'parent_sku', variation_size: 'variation_size',
-      variation_shoe_width: 'variation_width', variation_width: 'variation_width',
-      product_type: 'product_type', main_image: 'main_image',
-      additional_images: 'additional_images', cat_ng_lg: 'cat_ng_lg',
-      gender: 'gender', meta_title: 'meta_title', meta_description: 'meta_description',
-      meta_keywords: 'meta_keywords',
+    // Map headers to product fields — fuzzy matching with aliases
+    // If exact match not found, tries partial/contains matching
+    const headerAliases: Record<string, string[]> = {
+      brand: ['brand', 'manufacturer_name', 'vendor', 'make'],
+      mpn: ['mpn', 'manufacturer_part_number', 'part_number', 'mfr_part', 'model_number', 'part_no', 'partno'],
+      upc: ['upc', 'upc_code', 'gtin', 'ean', 'barcode', 'barcode_number'],
+      internal_sku: ['sku', 'internal_sku', 'master_sku', 'code', 'item_code', 'product_code', 'sku_id'],
+      product_name: ['product_name', 'productname', 'name', 'title', 'item_name', 'item_title', 'product_title', 'listing_title'],
+      manufacturer: ['manufacturer', 'manufacturer_name', 'mfr', 'brand_name'],
+      model: ['model', 'model_name', 'model_no'],
+      manufacturer_url: ['manufacturer_url', 'manufacturerurl', 'manufacturer_link', 'brand_url', 'mfr_url', 'official_url'],
+      product_url: ['product_url', 'producturl', 'product_link', 'source_url', 'url', 'link'],
+      description: ['description', 'desc', 'product_description', 'listing_description', 'details'],
+      weight: ['weight', 'weight_value', 'product_weight', 'ship_weight', 'shipping_weight'],
+      material: ['material', 'construction', 'fabric'],
+      color: ['color', 'colour', 'finish_color', 'product_color'],
     }
 
-    // Store NG-specific fields in product.specifications JSONB
-    const ngSpecFields = ['parent_sku', 'variation_size', 'variation_width', 'product_type', 'main_image', 'additional_images', 'cat_ng_lg', 'gender', 'meta_title', 'meta_description', 'meta_keywords']
+    // NG-specific fields stored in specifications JSONB
+    const ngSpecFields: Record<string, string[]> = {
+      parent_sku: ['parent_sku', 'parentsku', 'configurable_parent', 'parent_id'],
+      variation_size: ['variation_size', 'var_size', 'size', 'shoe_size', 'variant_size'],
+      variation_width: ['variation_width', 'var_width', 'shoe_width', 'variation_shoe_width', 'width'],
+      product_type: ['product_type', 'type', 'item_type', 'producttype'],
+      main_image: ['main_image', 'image', 'primary_image', 'image_url', 'product_image'],
+      additional_images: ['additional_images', 'extra_images', 'gallery_images', 'more_images', 'images'],
+      cat_ng_lg: ['cat_ng_lg', 'category', 'cat_ng', 'ng_category', 'nightgalaxy_category'],
+      gender: ['gender', 'sex'],
+      meta_title: ['meta_title', 'metatitle', 'seo_title', 'meta_title_tag'],
+      meta_description: ['meta_description', 'metadescription', 'seo_description', 'meta_desc'],
+      meta_keywords: ['meta_keywords', 'metakeywords', 'seo_keywords', 'keywords', 'tags'],
+    }
+
+    function findFieldMatch(header: string): { field: string; isSpec: boolean } | null {
+      const h = header.trim().toLowerCase().replace(/[^a-z0-9_]/g, '_')
+      
+      // Try exact match in standard fields
+      for (const [field, aliases] of Object.entries(headerAliases)) {
+        if (aliases.includes(h)) return { field, isSpec: false }
+      }
+      
+      // Try exact match in NG spec fields
+      for (const [field, aliases] of Object.entries(ngSpecFields)) {
+        if (aliases.includes(h)) return { field, isSpec: true }
+      }
+      
+      // Try contains match (partial)
+      for (const [field, aliases] of Object.entries(headerAliases)) {
+        for (const alias of aliases) {
+          if (h.includes(alias) || alias.includes(h)) return { field, isSpec: false }
+        }
+      }
+      for (const [field, aliases] of Object.entries(ngSpecFields)) {
+        for (const alias of aliases) {
+          if (h.includes(alias) || alias.includes(h)) return { field, isSpec: true }
+        }
+      }
+      
+      return null
+    }
 
     let imported = 0
     let duplicates = 0
@@ -136,14 +176,14 @@ export async function POST(request: Request) {
 
       for (let j = 0; j < headers.length; j++) {
         const header = headers[j]
-        const fieldName = headerMap[header]
+        const match = findFieldMatch(header)
         const cellValue = row[j] !== undefined && row[j] !== null ? String(row[j]).trim() : ''
         
-        if (fieldName && cellValue) {
-          if (ngSpecFields.includes(fieldName)) {
-            specs[fieldName] = cellValue
+        if (match && cellValue) {
+          if (match.isSpec) {
+            specs[match.field] = cellValue
           } else {
-            product[fieldName] = cellValue
+            product[match.field] = cellValue
           }
         }
       }
