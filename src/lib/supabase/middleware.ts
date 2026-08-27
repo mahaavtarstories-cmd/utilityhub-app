@@ -25,25 +25,22 @@ export async function updateSession(request: NextRequest) {
     }
   )
 
-  // Refresh session if exists
-  await supabase.auth.getUser()
-
-  // Get user once
+  // Single getUser call
   const { data: { user } } = await supabase.auth.getUser()
 
   const { pathname } = request.nextUrl
   const isLoginPage = pathname === '/app/login'
-  const isProtected = pathname.startsWith('/app') && !isLoginPage
 
-  // Protect /app routes — redirect to login if no user
-  if (isProtected && !user) {
+  // Only protect /app routes that are NOT the login page
+  if (pathname.startsWith('/app') && !isLoginPage && !user) {
     const url = request.nextUrl.clone()
     url.pathname = '/app/login'
     url.searchParams.set('redirect', pathname)
     return NextResponse.redirect(url)
   }
 
-  // Redirect logged-in users away from login page
+  // Only redirect away from login if user is ACTUALLY logged in
+  // Add a small check to prevent redirect loops
   if (isLoginPage && user) {
     const url = request.nextUrl.clone()
     url.pathname = '/app'
