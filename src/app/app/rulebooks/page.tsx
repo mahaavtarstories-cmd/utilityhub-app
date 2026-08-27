@@ -9,43 +9,49 @@ export default async function RulebooksPage() {
   const supabase = await createClient()
 
   const { data: projects } = await supabase.from('projects').select('id, name, platform').order('name')
-  
-  // Get published rulebook for each project
+
   const { data: rulebooks } = await supabase
     .from('rulebooks')
-    .select('*, projects(name)')
+    .select('id, project_id, version, status, created_at, published_at, change_reason')
     .order('created_at', { ascending: false })
 
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold text-white">Rulebooks</h1>
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {projects?.map((p: any) => {
-          const published = rulebooks?.find((r: any) => r.project_id === p.id && r.status === 'published')
-          const drafts = rulebooks?.filter((r: any) => r.project_id === p.id && r.status !== 'published' && r.status !== 'archived')
+          const projectRulebooks = rulebooks?.filter((r: any) => r.project_id === p.id) || []
+          const published = projectRulebooks.find((r: any) => r.status === 'published')
+          const drafts = projectRulebooks.filter((r: any) => ['draft', 'under_review', 'approved'].includes(r.status))
+          const archived = projectRulebooks.filter((r: any) => r.status === 'archived')
+
           return (
             <Link
               key={p.id}
               href={`/app/projects/${p.id}/rulebook`}
               className="block bg-slate-800 border border-slate-700 rounded-xl p-5 hover:border-blue-600 transition-colors"
             >
-              <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center justify-between mb-3">
                 <span className={`text-xs px-2 py-1 rounded border ${PLATFORM_COLORS[p.platform as keyof typeof PLATFORM_COLORS]}`}>
                   {PLATFORM_LABELS[p.platform as keyof typeof PLATFORM_LABELS]}
                 </span>
                 <span className="text-xs text-slate-400">{p.name}</span>
               </div>
-              <div className="flex items-center gap-3 text-sm">
+
+              <div className="space-y-1 text-sm">
                 {published ? (
-                  <>
-                    <span className="text-green-400">● Published v{published.version}</span>
-                    {drafts && drafts.length > 0 && (
-                      <span className="text-yellow-400">● {drafts.length} draft(s)</span>
-                    )}
-                  </>
+                  <p className="text-green-400">● Published v{published.version}</p>
                 ) : (
-                  <span className="text-slate-500">No rulebook yet</span>
+                  <p className="text-slate-500">○ No published version</p>
                 )}
+                {drafts.length > 0 && (
+                  <p className="text-yellow-400">● {drafts.length} pending draft(s)</p>
+                )}
+                {archived.length > 0 && (
+                  <p className="text-slate-500">📁 {archived.length} archived version(s)</p>
+                )}
+                <p className="text-slate-400 text-xs mt-1">Total: {projectRulebooks.length} version(s)</p>
               </div>
             </Link>
           )
