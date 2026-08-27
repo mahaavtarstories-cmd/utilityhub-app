@@ -2,7 +2,6 @@
 
 import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
 
 export default function ExcelImportPage({ projectId, projectName }: { projectId: string; projectName: string }) {
   const router = useRouter()
@@ -20,11 +19,13 @@ export default function ExcelImportPage({ projectId, projectName }: { projectId:
     setResult(null)
 
     try {
-      const text = await file.text()
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('projectId', projectId)
+
       const res = await fetch('/api/import-excel', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ projectId, csvData: text, fileName: file.name })
+        body: formData
       })
       const data = await res.json()
       if (!res.ok) { setError(data.error || 'Import failed') }
@@ -44,7 +45,7 @@ export default function ExcelImportPage({ projectId, projectName }: { projectId:
     <div className="max-w-2xl space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-white">Import Excel — {projectName}</h1>
-        <p className="text-sm text-slate-400 mt-1">Upload a CSV/Excel file with product data. Required columns: Brand, MPN, UPC. Optional: SKU, Product Name, Manufacturer URL, Product URL, Description, Weight, Material, Color.</p>
+        <p className="text-sm text-slate-400 mt-1">Upload a CSV or Excel (.xlsx) file with product data. Required: Brand, MPN, or UPC. Optional: SKU, Product Name, URLs, Description, Weight, Material, Color.</p>
       </div>
 
       <form onSubmit={handleUpload} className="space-y-4">
@@ -55,14 +56,16 @@ export default function ExcelImportPage({ projectId, projectName }: { projectId:
             Choose File
           </button>
           {file && <p className="mt-3 text-sm text-slate-300">{file.name} ({(file.size / 1024).toFixed(1)} KB)</p>}
-          {!file && <p className="mt-3 text-sm text-slate-500">No file selected</p>}
+          {!file && <p className="mt-3 text-sm text-slate-500">No file selected — supports .csv, .xlsx, .xls</p>}
         </div>
 
         <div className="bg-slate-800 border border-slate-700 rounded-xl p-4">
-          <p className="text-sm text-slate-400 mb-2">Expected CSV format (first row = headers):</p>
-          <code className="text-xs text-slate-300 block bg-slate-900/50 p-3 rounded">
-            Brand,MPN,UPC,SKU,ProductName,ManufacturerURL,ProductURL,Description,Weight,Material,Color
-          </code>
+          <p className="text-sm text-slate-400 mb-2">Supported formats & columns:</p>
+          <div className="space-y-1">
+            <p className="text-xs text-slate-500">CSV: Brand,MPN,UPC,SKU,ProductName,ManufacturerURL,ProductURL,Description,Weight,Material,Color</p>
+            <p className="text-xs text-slate-500">Excel: Same columns as header row, first sheet only</p>
+            <p className="text-xs text-slate-500">Night Galaxy: Uses code/title/mpn/upc columns from Magento export</p>
+          </div>
         </div>
 
         {error && <div className="text-sm text-red-400 bg-red-950/50 border border-red-800 rounded-lg px-3 py-2">{error}</div>}
@@ -86,8 +89,8 @@ export default function ExcelImportPage({ projectId, projectName }: { projectId:
             </div>
             {result.errorDetails && result.errorDetails.length > 0 && (
               <div className="mt-3 max-h-40 overflow-y-auto">
-                <p className="text-xs text-slate-400 mb-1">Error details:</p>
-                {result.errorDetails.slice(0, 10).map((err: string, i: number) => (
+                <p className="text-xs text-slate-400 mb-1">Error details (first 15):</p>
+                {result.errorDetails.map((err: string, i: number) => (
                   <p key={i} className="text-xs text-red-400">• {err}</p>
                 ))}
               </div>
