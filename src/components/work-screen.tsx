@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { TASK_STATUS_LABELS, TASK_STATUS_COLORS } from '@/lib/types'
+import AIPanel from './ai-panel'
 
 interface WorkScreenProps {
   taskId: string
@@ -184,6 +185,20 @@ export default function WorkScreen({ taskId, task, product, project, rulebook, u
                   className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm rounded-lg">Submit for QA</button>
               </div>
             </div>
+          )}
+
+          {/* AI Assistance Panel */}
+          {canWork && (
+            <AIPanel
+              productId={product.id}
+              projectId={task.project_id}
+              rulebook={rulebook}
+              product={product}
+              onApply={(data) => {
+                setProductData(prev => ({ ...prev, ...data }))
+                setSuccess('AI suggestion applied — review and save')
+              }}
+            />
           )}
 
           {/* QA panel */}
