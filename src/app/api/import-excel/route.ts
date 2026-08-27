@@ -92,7 +92,7 @@ export async function POST(request: Request) {
     const headers = rows[0].map(normalizeHeader)
     const dataRows = rows.slice(1)
 
-    // Map headers to product fields
+    // Map headers to product fields — supports CSV, Excel, and Night Galaxy Magento export columns
     const headerMap: Record<string, string> = {
       brand: 'brand', mpn: 'mpn', upc: 'upc', sku: 'internal_sku',
       product_name: 'product_name', productname: 'product_name', name: 'product_name',
@@ -100,9 +100,18 @@ export async function POST(request: Request) {
       manufacturer_url: 'manufacturer_url', manufacturerurl: 'manufacturer_url',
       product_url: 'product_url', producturl: 'product_url',
       description: 'description', weight: 'weight', material: 'material', color: 'color',
-      // Night Galaxy specific columns
-      code: 'internal_sku', title: 'product_name', mpn_space: 'mpn',
+      // Night Galaxy Magento export columns
+      code: 'internal_sku', title: 'product_name', master_sku: 'internal_sku',
+      parent_sku: 'parent_sku', variation_size: 'variation_size',
+      variation_shoe_width: 'variation_width', variation_width: 'variation_width',
+      product_type: 'product_type', main_image: 'main_image',
+      additional_images: 'additional_images', cat_ng_lg: 'cat_ng_lg',
+      gender: 'gender', meta_title: 'meta_title', meta_description: 'meta_description',
+      meta_keywords: 'meta_keywords',
     }
+
+    // Store NG-specific fields in product.specifications JSONB
+    const ngSpecFields = ['parent_sku', 'variation_size', 'variation_width', 'product_type', 'main_image', 'additional_images', 'cat_ng_lg', 'gender', 'meta_title', 'meta_description', 'meta_keywords']
 
     let imported = 0
     let duplicates = 0
@@ -123,13 +132,25 @@ export async function POST(request: Request) {
     for (let i = 0; i < dataRows.length; i++) {
       const row = dataRows[i]
       const product: Record<string, any> = { project_id: projectId, research_status: 'pending', qa_status: 'pending' }
+      const specs: Record<string, any> = {}
 
       for (let j = 0; j < headers.length; j++) {
         const header = headers[j]
         const fieldName = headerMap[header]
-        if (fieldName && row[j] !== undefined && row[j] !== null && String(row[j]).trim()) {
-          product[fieldName] = String(row[j]).trim()
+        const cellValue = row[j] !== undefined && row[j] !== null ? String(row[j]).trim() : ''
+        
+        if (fieldName && cellValue) {
+          if (ngSpecFields.includes(fieldName)) {
+            specs[fieldName] = cellValue
+          } else {
+            product[fieldName] = cellValue
+          }
         }
+      }
+
+      // Store NG-specific fields in specifications JSONB
+      if (Object.keys(specs).length > 0) {
+        product.specifications = specs
       }
 
       // Validate required fields
@@ -179,7 +200,7 @@ export async function POST(request: Request) {
             return {
               project_id: projectId,
               product_id: p.id,
-              title: `Research: ${batchItem.brand || ''} ${batchItem.product_name || batchItem.mpn || ''}`.trim(),
+              title: `Research: ${batchItem.product_name || batchItem.brand || batchItem.mpn || 'Unknown Product'}`.trim(),
               status: 'new' as const
             }
           })
