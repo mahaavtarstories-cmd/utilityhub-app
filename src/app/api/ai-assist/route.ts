@@ -8,11 +8,15 @@ import { NextResponse } from 'next/server'
 async function callAI(prompt: string, systemPrompt: string): Promise<string> {
   const aiUrl = process.env.AI_PROVIDER_URL || 'http://localhost:11434/api/generate'
   const aiModel = process.env.AI_MODEL || 'qwen3.5:cloud'
+  const aiKey = process.env.AI_API_KEY
 
   try {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+    if (aiKey) headers['X-API-Key'] = aiKey
+
     const res = await fetch(aiUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({
         model: aiModel,
         prompt: `${systemPrompt}\n\n${prompt}`,
@@ -23,7 +27,6 @@ async function callAI(prompt: string, systemPrompt: string): Promise<string> {
     const data = await res.json()
     return data.response || data.output || ''
   } catch (err: any) {
-    // Fallback: return empty — caller handles gracefully
     throw new Error(`AI provider unavailable: ${err.message}`)
   }
 }
