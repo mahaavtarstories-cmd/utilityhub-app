@@ -111,6 +111,28 @@ export async function POST(request: Request) {
         const size = specs.variation_size || ''
         const width = specs.variation_width || ''
         const color = product.color || specs.color || ''
+        const manufacturerUrl = product.manufacturer_url || ''
+        
+        // If we have a manufacturer URL, fetch it for real product data
+        let manufacturerData = ''
+        if (manufacturerUrl) {
+          try {
+            const pageRes = await fetch(manufacturerUrl, { signal: AbortSignal.timeout(15000) })
+            const pageText = await pageRes.text()
+            // Extract product name, type, features from page
+            const titleMatch = pageText.match(/<title[^>]*>([^<]+)<\/title>/i)
+            const h1Match = pageText.match(/<h1[^>]*>([^<]+)<\/h1>/i)
+            const metaDesc = pageText.match(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']+)["']/i)
+            if (titleMatch) manufacturerData += `Page Title: ${titleMatch[1].trim()}\n`
+            if (h1Match) manufacturerData += `Product Heading: ${h1Match[1].trim()}\n`
+            if (metaDesc) manufacturerData += `Meta Description: ${metaDesc[1].trim()}\n`
+            // Extract key specs from page text (simplified)
+            const cleanText = pageText.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').substring(0, 3000)
+            manufacturerData += `Page Content (first 3000 chars): ${cleanText}\n`
+          } catch (e: any) {
+            manufacturerData = `Could not fetch manufacturer page: ${e.message}\n`
+          }
+        }
         
         const prompt = `${fullRuleContext}
 
@@ -118,21 +140,25 @@ Generate a product title for:
 Brand: ${product.brand || 'N/A'}
 MPN: ${product.mpn || 'N/A'}
 UPC: ${product.upc || 'N/A'}
-Product: ${product.product_name || 'N/A'}
 SKU: ${product.internal_sku || 'N/A'}
 Product Type: ${productType}
 Size: ${size}
 Width: ${width}
 Color: ${color || 'not specified'}
+Manufacturer URL: ${manufacturerUrl || 'N/A'}
+
+${manufacturerUrl ? `MANUFACTURER PAGE DATA:\n${manufacturerData}\n` : ''}
 
 CRITICAL RULES:
+- Use REAL product information from the manufacturer page data above
 - The MPN should appear ONLY ONCE in the title, at the end after " - "
-- Do NOT repeat the MPN in the product description part of the title
-- Format: [Brand] [Product Description] - [MPN]
-- If MPN is "300TRPST 035R", the title ends with " - 300TRPST 035R" (use the MPN as-is)
-- Include Color if specified, Size, Width in the title (if space permits per priority order)
-- If color is "not specified", omit it — do NOT guess or invent colors
+- Format: [Brand] [Real Product Name/Type from manufacturer] [Size if space] [Width if space] - [MPN]
+- If MPN is "300TRPST 035R" (space format), keep it as-is after " - "
+- Include Color if specified in product data or found on manufacturer page
+- Include Size, Width in the title (if space permits per priority order)
+- If color is "not specified" and not found on page, omit it
 - Count characters carefully and stay within the max length
+- Use full size words: Size 3.5 (not 3½), Regular/Wide (not R/W)
 
 Output ONLY the title, nothing else.`
 
@@ -141,6 +167,21 @@ Output ONLY the title, nothing else.`
       }
 
       case 'generate_description': {
+        const manufacturerUrl = product.manufacturer_url || product.product_url || ''
+        
+        // Fetch manufacturer page for real product data
+        let manufacturerData = ''
+        if (manufacturerUrl) {
+          try {
+            const pageRes = await fetch(manufacturerUrl, { signal: AbortSignal.timeout(15000) })
+            const pageText = await pageRes.text()
+            const cleanText = pageText.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').substring(0, 5000)
+            manufacturerData = `MANUFACTURER PAGE DATA:\n${cleanText}\n\n`
+          } catch (e: any) {
+            manufacturerData = `Note: Could not fetch manufacturer page (${e.message})\n\n`
+          }
+        }
+
         const prompt = `${fullRuleContext}
 
 Generate a product description for:
@@ -148,10 +189,19 @@ Brand: ${product.brand || 'N/A'}
 MPN: ${product.mpn || 'N/A'}
 UPC: ${product.upc || 'N/A'}
 Product: ${product.product_name || 'N/A'}
-Manufacturer URL: ${product.manufacturer_url || 'N/A'}
-Product URL: ${product.product_url || 'N/A'}
+Manufacturer URL: ${manufacturerUrl || 'N/A'}
 
-Follow the description rules EXACTLY. Use the specified layout and sections. Include all available data. Output ONLY the description, nothing else.`
+${manufacturerData}
+
+Use the REAL product information from the manufacturer page above. Extract:
+- Actual product name, type, and key features
+- Real specifications (weight, material, dimensions, color)
+- Compliance/certification info (Steel Toe, ASTM standards, Berry Compliant, etc.)
+- Country of origin
+
+Follow the description rules EXACTLY. Use the specified layout and sections.
+Include all available data from the manufacturer page.
+Output ONLY the description, nothing else.`
 
         const description = await callAI(prompt, systemPrompt)
         return NextResponse.json({ description: description.trim() })
