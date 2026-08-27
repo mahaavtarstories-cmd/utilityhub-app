@@ -52,6 +52,24 @@ export async function POST(request: Request) {
 
   if (!product) return NextResponse.json({ error: 'No product data' }, { status: 400 })
 
+  // Fetch global rules to append to rule context
+  const { data: globalRules } = await supabase.from('global_rules').select('key, label, value, type').order('category')
+  let globalContext = ''
+  if (globalRules && globalRules.length > 0) {
+    globalContext = '\n\nGLOBAL RULES (apply to all platforms):\n'
+    for (const r of globalRules) {
+      if (r.type === 'checkbox' && r.value === 'true') {
+        globalContext += `- ${r.label}: YES\n`
+      } else if (r.type === 'checkbox' && r.value === 'false') {
+        globalContext += `- ${r.label}: NO\n`
+      } else if (r.value) {
+        globalContext += `- ${r.label}: ${r.value}\n`
+      }
+    }
+  }
+
+  const fullRuleContext = (ruleContext || '') + globalContext
+
   // Log AI usage
   await supabase.from('audit_log').insert({
     user_id: user.id,
@@ -66,7 +84,7 @@ export async function POST(request: Request) {
   try {
     switch (action) {
       case 'generate_title': {
-        const prompt = `${ruleContext}
+        const prompt = `${fullRuleContext}
 
 Generate a product title for:
 Brand: ${product.brand || 'N/A'}
@@ -81,7 +99,7 @@ Follow the title rules EXACTLY. Output ONLY the title, nothing else.`
       }
 
       case 'generate_description': {
-        const prompt = `${ruleContext}
+        const prompt = `${fullRuleContext}
 
 Generate a product description for:
 Brand: ${product.brand || 'N/A'}

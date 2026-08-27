@@ -19,6 +19,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Tasks', href: '/app/tasks', icon: '✅', roles: ['admin', 'manager', 'researcher', 'qa'] },
   { label: 'Products', href: '/app/products', icon: '📦', roles: ['admin', 'manager', 'researcher', 'qa'] },
   { label: 'Rulebooks', href: '/app/rulebooks', icon: '📖', roles: ['admin', 'manager', 'researcher', 'qa'] },
+  { label: 'Global Rules', href: '/app/global-rules', icon: '🌐', roles: ['admin', 'manager'] },
   { label: 'Approved Sources', href: '/app/sources', icon: '🌐', roles: ['admin', 'manager', 'researcher', 'qa'] },
   { label: 'QA', href: '/app/qa', icon: '🔍', roles: ['admin', 'manager', 'qa'] },
   { label: 'Modules', href: '/app/modules', icon: '🧩', roles: ['admin', 'manager'] },
