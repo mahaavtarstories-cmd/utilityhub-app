@@ -55,17 +55,39 @@ export async function POST(request: Request) {
   // Fetch global rules to append to rule context
   const { data: globalRules } = await supabase.from('global_rules').select('key, label, value, type').order('category')
   let globalContext = ''
+  
+  // Build rules context for AI
   if (globalRules && globalRules.length > 0) {
+    // Get project platform for per-platform max length
+    const { data: project } = await supabase.from('projects').select('platform').eq('id', projectId).single()
+    const platform = project?.platform || 'ebay'
+    
+    // Find platform-specific max length
+    const platformMaxLen = globalRules.find(r => r.key === `title_max_length_${platform}`)
+    const defaultMaxLen = globalRules.find(r => r.key === 'title_max_length')
+    const titleMaxLen = platformMaxLen?.value || defaultMaxLen?.value || '80'
+    
     globalContext = '\n\nGLOBAL RULES (apply to all platforms):\n'
+    globalContext += `Platform: ${platform}\n`
+    globalContext += `Max Title Length for this platform: ${titleMaxLen} chars\n`
+    
     for (const r of globalRules) {
+      // Skip per-platform max length rules (already included above)
+      if (r.key.startsWith('title_max_length_') && r.key !== 'title_max_length') continue
+      
       if (r.type === 'checkbox' && r.value === 'true') {
         globalContext += `- ${r.label}: YES\n`
       } else if (r.type === 'checkbox' && r.value === 'false') {
         globalContext += `- ${r.label}: NO\n`
-      } else if (r.value) {
+      } else if (r.value && r.key !== 'title_max_length') {
         globalContext += `- ${r.label}: ${r.value}\n`
       }
     }
+    
+    // Add space-aware instruction
+    globalContext += `\nIMPORTANT: Include Color, Size, Material, and SEO words ONLY if there is space remaining within the ${titleMaxLen} char limit.\n`
+    globalContext += `Priority order (include in this order until limit reached): Brand, Product Type, Key Spec, MPN, Color, Size, Material, SEO Words\n`
+    globalContext += `Current platform max length: ${titleMaxLen} chars\n`
   }
 
   const fullRuleContext = (ruleContext || '') + globalContext
