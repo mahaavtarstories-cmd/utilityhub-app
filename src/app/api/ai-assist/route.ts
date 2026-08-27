@@ -106,6 +106,12 @@ export async function POST(request: Request) {
   try {
     switch (action) {
       case 'generate_title': {
+        const specs = product.specifications || {}
+        const productType = specs.product_type || product.product_name || 'N/A'
+        const size = specs.variation_size || ''
+        const width = specs.variation_width || ''
+        const color = product.color || specs.color || ''
+        
         const prompt = `${fullRuleContext}
 
 Generate a product title for:
@@ -114,14 +120,19 @@ MPN: ${product.mpn || 'N/A'}
 UPC: ${product.upc || 'N/A'}
 Product: ${product.product_name || 'N/A'}
 SKU: ${product.internal_sku || 'N/A'}
+Product Type: ${productType}
+Size: ${size}
+Width: ${width}
+Color: ${color || 'not specified'}
 
 CRITICAL RULES:
 - The MPN should appear ONLY ONCE in the title, at the end after " - "
 - Do NOT repeat the MPN in the product description part of the title
 - Format: [Brand] [Product Description] - [MPN]
 - If MPN is "300TRPST 035R", the title ends with " - 300TRPST 035R" (use the MPN as-is)
+- Include Color if specified, Size, Width in the title (if space permits per priority order)
+- If color is "not specified", omit it — do NOT guess or invent colors
 - Count characters carefully and stay within the max length
-- Include Color, Size, Material only if space permits after Brand + Product Type + MPN
 
 Output ONLY the title, nothing else.`
 
