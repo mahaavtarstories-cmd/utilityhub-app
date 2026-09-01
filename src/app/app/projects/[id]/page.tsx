@@ -53,6 +53,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
           <Link href={`/app/projects/${id}/members`} className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm rounded-lg border border-slate-700">Manage Members</Link>
           <Link href={`/app/projects/${id}/rulebook`} className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm rounded-lg border border-slate-700">Rulebook</Link>
           <Link href={`/app/projects/${id}/sources`} className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm rounded-lg border border-slate-700">Approved Sources</Link>
+          <Link href={`/app/projects/${id}/batch`} className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-sm rounded-lg">⚡ Batch Pipeline</Link>
           {(user.role === 'admin' || user.role === 'manager') && (
             <>
               <Link href={`/app/projects/${id}/import`} className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg">Import Excel</Link>
