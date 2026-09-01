@@ -120,7 +120,7 @@ OUTPUT: Return ONLY a valid JSON object (no markdown fences) with exactly these 
 JSON now:`
 
   try {
-    const rawAI = await callAI(prompt)
+    const rawAI = await callAI(prompt, { numPredict: 2048 })
     const parsed = extractJSON(rawAI)
     if (!parsed || !parsed.title) {
       return NextResponse.json({ error: 'AI returned unparseable output', raw: String(rawAI).slice(0, 200) }, { status: 502 })
