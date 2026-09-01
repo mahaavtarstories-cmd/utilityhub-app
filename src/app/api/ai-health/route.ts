@@ -24,6 +24,7 @@ export async function GET() {
         model: aiModel,
         prompt: 'Reply with exactly: OK',
         stream: false,
+        think: false,
         options: { num_predict: 5 },
       }),
     })

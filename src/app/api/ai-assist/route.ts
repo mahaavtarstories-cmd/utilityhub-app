@@ -26,7 +26,8 @@ async function callAI(prompt: string, systemPrompt: string): Promise<string> {
       body: JSON.stringify({
         model: aiModel,
         prompt: `${systemPrompt}\n\n${prompt}`,
-        stream: false
+        stream: false,
+        think: false // qwen3.5 default-reasons; without this, response comes back empty
       })
     })
     if (!res.ok) throw new Error(`AI provider error: ${res.status}`)
