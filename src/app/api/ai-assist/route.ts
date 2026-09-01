@@ -1,6 +1,9 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 
+// Cloud LLM calls can take 30-60s; Vercel serverless default is 10s
+export const maxDuration = 60
+
 // AI Provider abstraction — can swap providers by changing env vars
 // Current: Ollama cloud (same as main session)
 // Future: OpenAI, Anthropic, etc.
@@ -12,7 +15,10 @@ async function callAI(prompt: string, systemPrompt: string): Promise<string> {
 
   try {
     const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-    if (aiKey) headers['X-API-Key'] = aiKey
+    if (aiKey) {
+      headers['Authorization'] = `Bearer ${aiKey}` // ollama.com cloud
+      headers['X-API-Key'] = aiKey // local/alt providers
+    }
 
     const res = await fetch(aiUrl, {
       method: 'POST',
